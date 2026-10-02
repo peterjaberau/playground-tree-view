@@ -7,11 +7,11 @@ const themeConfig: any = defineConfig({
   // preflight: false,
   // cssVarsPrefix: 'chakra',
 } as any)
-const theme = createSystem(themeConfig)
+export const chakraSystem = createSystem(themeConfig)
 
 export const Provider = (props: { children: React.ReactNode }) => {
   return (
-    <ChakraProvider value={theme}>
+    <ChakraProvider value={chakraSystem}>
       <ThemeProvider attribute="class" disableTransitionOnChange>
         {props.children}
       </ThemeProvider>

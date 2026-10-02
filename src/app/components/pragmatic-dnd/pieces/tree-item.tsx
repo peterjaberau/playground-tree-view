@@ -1,22 +1,11 @@
-/* eslint-disable @atlaskit/design-system/no-deprecated-imports, @atlaskit/design-system/no-html-button -- Preserve existing tree example while focus-ring usage is reviewed separately. */
-/**
- * @jsxRuntime classic
- * @jsx jsx
- */
+"use client"
 
-import { Fragment, memo, useCallback, useContext, useEffect, useRef, useState, type NamedExoticComponent } from "react"
-import ReactDOM from "react-dom"
+import { Box, Button, ChakraProvider, HStack, Text } from "@chakra-ui/react"
+import { ChevronDown, ChevronRight } from "lucide-react"
+import { memo, useCallback, useContext, useEffect, useRef, useState } from "react"
+import { flushSync } from "react-dom"
+import { createRoot } from "react-dom/client"
 
-// eslint-disable-next-line @atlaskit/ui-styling-standard/use-compiled -- Ignored via go/DSP-18766
-import { css, jsx } from "@emotion/react"
-import invariant from "tiny-invariant"
-
-import mergeRefs from "@atlaskit/ds-lib/merge-refs"
-import FocusRing from "@atlaskit/focus-ring/focus-ring"
-import ChevronDownIcon from "@atlaskit/icon/core/chevron-down"
-import ChevronRightIcon from "@atlaskit/icon/core/chevron-right"
-import { type Instruction } from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item"
-import { GroupDropIndicator } from "@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/group"
 import {
   draggable,
   dropTargetForElements,
@@ -25,265 +14,152 @@ import {
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/utils/combine"
 import { pointerOutsideOfPreview } from "@atlaskit/pragmatic-drag-and-drop/utils/pointer-outside-of-preview"
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/utils/set-custom-native-drag-preview"
-import { token } from "@atlaskit/tokens"
+import type { Instruction } from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item"
+import { GroupDropIndicator } from "@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/group"
 
-import { type TreeItem as TreeItemType } from "../data/tree-legacy"
+import type { TreeItem as TreeItemData } from "../data/tree"
+import { chakraSystem } from "../../../provider"
 import { DependencyContext, TreeContext } from "./tree-context"
 
-const iconColor = token("color.icon")
+const indentToken = "5"
 
-function ChildIcon() {
-  return (
-    <svg aria-hidden={true} width={24} height={24} viewBox="0 0 24 24">
-      <circle cx={12} cy={12} r={2} fill={iconColor} />
-    </svg>
-  )
-}
-
-function GroupIcon({ isOpen }: { isOpen: boolean }) {
-  const Icon = isOpen ? ChevronDownIcon : ChevronRightIcon
-  return <Icon spacing="spacious" label="" color={iconColor} size="small" />
-}
-
-function Icon({ item }: { item: TreeItemType }) {
-  if (!item.children.length) {
-    return <ChildIcon />
-  }
-  return <GroupIcon isOpen={item.isOpen ?? false} />
-}
-
-const outerStyles = css({
-  // needed for our action button that uses position:absolute
-  position: "relative",
-})
-
-const outerButtonStyles = css({
-  /**
-   * Without this Safari renders white text on drag.
-   */
-  color: token("color.text"),
-
-  border: 0,
-  width: "100%",
-  position: "relative",
-  background: "transparent",
-  margin: 0,
-  padding: 0,
-  borderRadius: 3,
-  cursor: "pointer",
-})
-
-const outerHoverStyles = css({
-  borderRadius: 3,
-  cursor: "pointer",
-  // eslint-disable-next-line @atlaskit/ui-styling-standard/no-unsafe-selectors -- Ignored via go/DSP-18766
-  ":hover": {
-    background: token("color.background.neutral.subtle.hovered"),
-  },
-})
-
-const innerDraggingStyles = css({
-  opacity: 0.4,
-})
-
-const innerButtonStyles = css({
-  padding: token("space.100"),
-  paddingRight: 40,
-  alignItems: "center",
-  display: "flex",
-  flexDirection: "row",
-
-  background: token("color.background.neutral.subtle"),
-  borderRadius: 3,
-})
-
-const idStyles = css({
-  margin: 0,
-  // `color.text.subtlest` (not `color.text.disabled`) so the inline `<code>`
-  // `Draft` label meets WCAG AA contrast.
-  color: token("color.text.subtlest"),
-})
-
-const labelStyles = css({
-  flexGrow: 1,
-  overflow: "hidden",
-  textAlign: "left",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-})
-
-const indentPerLevel = token("space.250")
-
-const indentStyles = css({
-  paddingLeft: indentPerLevel,
-})
-
-const fullWidthStyle = css({
-  position: "absolute",
-  inset: 0,
-})
-
-const previewStyles = css({
-  background: token("elevation.surface.raised"),
-  padding: token("space.100"),
-  borderRadius: 3,
-})
-
-function Preview({ item }: { item: TreeItemType }) {
-  return <div css={previewStyles}>Item {item.id}</div>
-}
-
-function delay({ waitMs: timeMs, fn }: { waitMs: number; fn: () => void }): () => void {
-  let timeoutId: number | null = window.setTimeout(() => {
-    timeoutId = null
-    fn()
-  }, timeMs)
-  return function cancel() {
-    if (timeoutId) {
-      window.clearTimeout(timeoutId)
-      timeoutId = null
-    }
-  }
-}
-
-const TreeItem: NamedExoticComponent<{
-  item: TreeItemType
+type TreeItemProps = {
+  item: TreeItemData
   level: number
   index: number
-}> = memo(function TreeItem({ item, level, index }: { item: TreeItemType; level: number; index: number }) {
+}
+
+function containsItem(items: TreeItemData[], id: string): boolean {
+  return items.some((item) => item.id === id || containsItem(item.children, id))
+}
+
+const TreeItem = memo(function TreeItem({ item, level, index }: TreeItemProps) {
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const groupRef = useRef<HTMLDivElement | null>(null)
-
-  const [state, setState] = useState<"idle" | "dragging" | "preview">("idle")
-  const [groupState, setGroupState] = useState<"is-innermost-over" | "idle">("idle")
+  const [isDragging, setIsDragging] = useState(false)
+  const [isGroupOver, setIsGroupOver] = useState(false)
   const [instruction, setInstruction] = useState<Instruction | null>(null)
-  const cancelExpandRef = useRef<(() => void) | null>(null)
-
-  const { dispatch, uniqueContextId, getPathToItem, registerTreeItem } = useContext(TreeContext)
+  const expandTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { dispatch, uniqueContextId } = useContext(TreeContext)
   const { DropIndicator, attachInstruction, extractInstruction } = useContext(DependencyContext)
-  const toggleOpen = useCallback(() => {
-    dispatch({ type: "toggle", itemId: item.id })
-  }, [dispatch, item])
 
-  const actionMenuTriggerRef = useRef<HTMLButtonElement>(null)
-  useEffect(() => {
-    invariant(buttonRef.current)
-    invariant(actionMenuTriggerRef.current)
-    return registerTreeItem({
-      itemId: item.id,
-      element: buttonRef.current,
-      actionMenuTrigger: actionMenuTriggerRef.current,
-    })
-  }, [item.id, registerTreeItem])
+  const hasChildren = item.children.length > 0
+  const isOpen = item.isOpen ?? false
 
-  const cancelExpand = useCallback(() => {
-    cancelExpandRef.current?.()
-    cancelExpandRef.current = null
+  const clearExpandTimer = useCallback(() => {
+    if (expandTimer.current !== null) {
+      clearTimeout(expandTimer.current)
+      expandTimer.current = null
+    }
   }, [])
 
+  const toggleOpen = useCallback(() => {
+    dispatch({ type: "toggle", itemId: item.id })
+  }, [dispatch, item.id])
+
   useEffect(() => {
-    invariant(buttonRef.current)
+    const button = buttonRef.current
+    if (!button) return
 
-    function onChange({ self }: ElementDropTargetEventBasePayload) {
-      const instruction = extractInstruction(self.data)
+    const updateInstruction = ({ self }: ElementDropTargetEventBasePayload) => {
+      const nextInstruction = extractInstruction(self.data)
 
-      // expand after 500ms if still merging
-      if (instruction?.operation === "combine" && item.children.length && !item.isOpen && !cancelExpandRef.current) {
-        cancelExpandRef.current = delay({
-          waitMs: 500,
-          fn: () => dispatch({ type: "expand", itemId: item.id }),
-        })
+      if (nextInstruction?.operation === "combine" && hasChildren && !isOpen && !expandTimer.current) {
+        expandTimer.current = setTimeout(() => {
+          expandTimer.current = null
+          dispatch({ type: "expand", itemId: item.id })
+        }, 500)
+      } else if (nextInstruction?.operation !== "combine") {
+        clearExpandTimer()
       }
-      if (instruction?.operation !== "combine" && cancelExpandRef.current) {
-        cancelExpand()
-      }
 
-      setInstruction(instruction)
-      return
+      setInstruction(nextInstruction)
     }
 
     return combine(
       draggable({
-        element: buttonRef.current,
+        element: button,
         getInitialData: () => ({
           id: item.id,
+          isOpenOnDragStart: isOpen,
           type: "tree-item",
-          isOpenOnDragStart: item.isOpen,
           uniqueContextId,
         }),
         onGenerateDragPreview: ({ nativeSetDragImage }) => {
           setCustomNativeDragPreview({
             getOffset: pointerOutsideOfPreview({ x: "16px", y: "8px" }),
             render: ({ container }) => {
-              // eslint-disable-next-line react/no-deprecated
-              ReactDOM.render(<Preview item={item} />, container)
-              // eslint-disable-next-line react/no-deprecated
-              return () => ReactDOM.unmountComponentAtNode(container)
+              const root = createRoot(container)
+              flushSync(() => {
+                root.render(
+                  <ChakraProvider value={chakraSystem}>
+                    <Box bg="bg.panel" borderRadius="md" px="2" py="1" shadow="md">
+                      Item {item.id}
+                    </Box>
+                  </ChakraProvider>,
+                )
+              })
+              return () => root.unmount()
             },
             nativeSetDragImage,
           })
         },
         onDragStart: ({ source }) => {
-          setState("dragging")
-          // collapse open items during a drag
+          setIsDragging(true)
           if (source.data.isOpenOnDragStart) {
             dispatch({ type: "collapse", itemId: item.id })
           }
         },
         onDrop: ({ source }) => {
-          setState("idle")
+          setIsDragging(false)
           if (source.data.isOpenOnDragStart) {
             dispatch({ type: "expand", itemId: item.id })
           }
         },
       }),
       dropTargetForElements({
-        element: buttonRef.current,
-        getData: ({ input, element }) => {
-          const data = { id: item.id }
-
-          return attachInstruction(data, {
-            input,
-            element,
-            operations: item.isDraft
-              ? { combine: "blocked" }
-              : {
-                  combine: "available",
-                  "reorder-before": "available",
-                  // Don't allow 'reorder-after' on expanded items
-                  "reorder-after": item.isOpen && item.children.length ? "not-available" : "available",
-                },
-          })
-        },
+        element: button,
+        getData: ({ input, element }) =>
+          attachInstruction(
+            { id: item.id },
+            {
+              input,
+              element,
+              operations: item.isDraft
+                ? { combine: "blocked" }
+                : {
+                    combine: "available",
+                    "reorder-before": "available",
+                    "reorder-after": hasChildren && isOpen ? "not-available" : "available",
+                  },
+            },
+          ),
         canDrop: ({ source }) =>
           source.data.type === "tree-item" &&
           source.data.id !== item.id &&
-          source.data.uniqueContextId === uniqueContextId,
-        onDragEnter: onChange,
-        onDrag: onChange,
+          source.data.uniqueContextId === uniqueContextId &&
+          !containsItem(item.children, source.data.id as string),
+        onDragEnter: updateInstruction,
+        onDrag: updateInstruction,
         onDragLeave: () => {
-          cancelExpand()
+          clearExpandTimer()
           setInstruction(null)
         },
         onDrop: () => {
-          cancelExpand()
+          clearExpandTimer()
           setInstruction(null)
         },
       }),
     )
-  }, [dispatch, item, cancelExpand, uniqueContextId, extractInstruction, attachInstruction, getPathToItem])
+  }, [clearExpandTimer, dispatch, hasChildren, isOpen, item.id, item.isDraft, uniqueContextId])
 
   useEffect(() => {
     const group = groupRef.current
-    // item has no children or is not open
-    if (!group) {
-      return
-    }
+    if (!group) return
 
-    function onChange({ location, self }: ElementDropTargetEventBasePayload) {
-      const [innerMost] = location.current.dropTargets.filter((dropTarget) => dropTarget.data.type === "group")
-
-      setGroupState(innerMost?.element === self.element ? "is-innermost-over" : "idle")
+    const updateGroupState = ({ location, self }: ElementDropTargetEventBasePayload) => {
+      const innermostGroup = location.current.dropTargets.find((target) => target.data.type === "group")
+      setIsGroupOver(innermostGroup?.element === self.element)
     }
 
     return dropTargetForElements({
@@ -294,100 +170,72 @@ const TreeItem: NamedExoticComponent<{
         source.data.uniqueContextId === uniqueContextId,
       getData: () => ({ type: "group" }),
       getIsSticky: () => false,
-      onDragStart: onChange,
-      onDropTargetChange: onChange,
-      onDragLeave: () => setGroupState("idle"),
-      onDrop: () => setGroupState("idle"),
+      onDragStart: updateGroupState,
+      onDropTargetChange: updateGroupState,
+      onDragLeave: () => setIsGroupOver(false),
+      onDrop: () => setIsGroupOver(false),
     })
-  }, [item.id, uniqueContextId])
+  }, [isOpen, item.children, item.id, uniqueContextId])
 
-  useEffect(
-    function mount() {
-      return function unmount() {
-        cancelExpand()
-      }
-    },
-    [cancelExpand],
-  )
+  useEffect(() => clearExpandTimer, [clearExpandTimer])
 
-  const aria = (() => {
-    if (!item.children.length) {
-      return undefined
-    }
-    return {
-      "aria-expanded": item.isOpen,
-      "aria-controls": `tree-item-${item.id}--subtree`,
-    }
-  })()
-
-  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false)
-  const openMoveDialog = useCallback(() => {
-    setIsMoveDialogOpen(true)
-  }, [])
-  const closeMoveDialog = useCallback(() => {
-    setIsMoveDialogOpen(false)
-  }, [])
+  const subtreeId = `tree-item-${item.id}--subtree`
 
   return (
-    <Fragment>
-      <div css={[outerStyles, state === "idle" ? outerHoverStyles : undefined]}>
-        <FocusRing isInset>
-          <button
-            {...aria}
-            css={[outerButtonStyles]}
-            id={`tree-item-${item.id}`}
-            onClick={toggleOpen}
-            ref={buttonRef}
-            type="button"
-            data-index={index}
-            data-level={level}
-            data-testid={`tree-item-${item.id}`}
-          >
-            <span css={[innerButtonStyles, state === "dragging" ? innerDraggingStyles : undefined]}>
-              <Icon item={item} />
-              <span css={labelStyles}>Item {item.id}</span>
-              {/* eslint-disable-next-line @atlaskit/design-system/no-html-code */}
-              <small css={idStyles}>{item.isDraft ? <code>Draft</code> : null}</small>
-            </span>
-            {instruction ? <DropIndicator instruction={instruction} /> : null}
-            <span
-              css={fullWidthStyle}
-              style={{
-                left: `calc(-1 * ${level} * ${indentPerLevel}`,
-              }}
-            />
-          </button>
-        </FocusRing>
-        <DropdownMenu
-          trigger={({ triggerRef, ...triggerProps }) => (
-            <Button
-              ref={mergeRefs([triggerRef, actionMenuTriggerRef])}
-              iconBefore={<MoreIcon label="Actions" color={token("color.icon.subtle")} size="small" />}
-              {...triggerProps}
-              spacing="compact"
-              // eslint-disable-next-line @atlaskit/ui-styling-standard/enforce-style-prop -- Ignored via go/DSP-18766
-              style={{ position: "absolute", top: 8, right: 8 }}
-              appearance="subtle"
-            />
+    <Box position="relative">
+      <Button
+        aria-controls={hasChildren ? subtreeId : undefined}
+        aria-expanded={hasChildren ? isOpen : undefined}
+        _expanded={{ bg: "transparent", _hover: { bg: "colorPalette.subtle" } }}
+        // colorPalette="blue"
+        data-index={index}
+        data-level={level}
+        data-testid={`tree-item-${item.id}`}
+        display="flex"
+        // focusRing="inside"
+        justifyContent="flex-start"
+        minH="9"
+        onClick={toggleOpen}
+        opacity={isDragging ? 0.45 : 1}
+        overflow="visible"
+        px="2"
+        position="relative"
+        ref={buttonRef}
+        variant="ghost"
+        w="full"
+      >
+        <HStack flex="1" gap="2" minW="0">
+          {hasChildren ? (
+            isOpen ? <ChevronDown aria-hidden size={16} /> : <ChevronRight aria-hidden size={16} />
+          ) : (
+            <Box aria-hidden bg="fg.muted" borderRadius="full" boxSize="1.5" ml="1.5" mr="1.5" />
           )}
-          shouldRenderToParent
-        >
-          <DropdownItemGroup>
-            <DropdownItem onClick={openMoveDialog}>Move</DropdownItem>
-          </DropdownItemGroup>
-        </DropdownMenu>
-      </div>
-      {item.children.length && item.isOpen ? (
-        <div id={aria?.["aria-controls"]} css={indentStyles}>
-          <GroupDropIndicator isActive={groupState === "is-innermost-over"} ref={groupRef}>
-            {item.children.map((child, index) => {
-              return <TreeItem item={child} key={child.id} level={level + 1} index={index} />
-            })}
+          <Text flex="1" textAlign="start" textOverflow="ellipsis" overflow="hidden" whiteSpace="nowrap">
+            Item {item.id}
+          </Text>
+          {item.isDraft ? <Text color="fg.muted" fontSize="xs">Draft</Text> : null}
+        </HStack>
+        {instruction ? <DropIndicator instruction={instruction} /> : null}
+        <Box
+          aria-hidden
+          bottom="0"
+          left={level === 0 ? "0" : `calc(-${level} * var(--chakra-spacing-5))`}
+          position="absolute"
+          right="0"
+          top="0"
+        />
+      </Button>
+
+      {hasChildren && isOpen ? (
+        <Box id={subtreeId} pl={indentToken}>
+          <GroupDropIndicator isActive={isGroupOver} ref={groupRef}>
+            {item.children.map((child, childIndex) => (
+              <TreeItem item={child} index={childIndex} key={child.id} level={level + 1} />
+            ))}
           </GroupDropIndicator>
-        </div>
+        </Box>
       ) : null}
-      <ModalTransition>{isMoveDialogOpen && <MoveDialog onClose={closeMoveDialog} itemId={item.id} />}</ModalTransition>
-    </Fragment>
+    </Box>
   )
 })
 

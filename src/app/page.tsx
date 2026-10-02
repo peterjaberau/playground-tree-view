@@ -3,8 +3,8 @@ import PragmaticDnd from "./components/pragmatic-dnd"
 
 export default function Page() {
   return (
-    <Container css={{ h: "100vh", w: "xl" }}>
-      <PragmaticDnd/>
+    <Container maxW="xl" minH="dvh">
+      <PragmaticDnd />
     </Container>
   )
 }
