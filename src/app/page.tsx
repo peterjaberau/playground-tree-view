@@ -1,3 +1,10 @@
+import { Container } from "@chakra-ui/react"
+import PragmaticDnd from "./components/pragmatic-dnd"
+
 export default function Page() {
-  return <div>demo</div>
+  return (
+    <Container css={{ h: "100vh", w: "xl" }}>
+      <PragmaticDnd/>
+    </Container>
+  )
 }

@@ -1,0 +1,38 @@
+import { createContext, type Context } from "react"
+
+import { attachInstruction } from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item/attach-instruction"
+import { extractInstruction } from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item/extract-instruction"
+import { DropIndicator } from "@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/list-item"
+
+import type { TreeAction, TreeItem } from "../data/tree"
+
+export type TreeContextValue = {
+  dispatch: (action: TreeAction) => void
+  uniqueContextId: symbol
+  getPathToItem: (itemId: string) => string[]
+  getMoveTargets: ({ itemId }: { itemId: string }) => TreeItem[]
+  getChildrenOfItem: (itemId: string) => TreeItem[]
+  registerTreeItem: (args: { itemId: string; element: HTMLElement; actionMenuTrigger: HTMLElement }) => void
+}
+
+export const TreeContext: Context<TreeContextValue> = createContext<TreeContextValue>({
+  dispatch: () => {},
+  uniqueContextId: Symbol("uniqueId"),
+  getPathToItem: () => [],
+  getMoveTargets: () => [],
+  getChildrenOfItem: () => [],
+  registerTreeItem: () => {},
+})
+
+// oxlint-disable-next-line eslint/no-redeclare
+export type DependencyContext = {
+  DropIndicator: typeof DropIndicator
+  attachInstruction: typeof attachInstruction
+  extractInstruction: typeof extractInstruction
+}
+
+export const DependencyContext: Context<DependencyContext> = createContext<DependencyContext>({
+  DropIndicator: DropIndicator,
+  attachInstruction: attachInstruction,
+  extractInstruction: extractInstruction,
+})
