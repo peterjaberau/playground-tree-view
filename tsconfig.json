@@ -1,0 +1,128 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowSyntheticDefaultImports": true,
+    "downlevelIteration": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitReturns": false,
+    "exactOptionalPropertyTypes": true,
+    "strictNullChecks": true,
+    "stripInternal": true,
+    "ignoreDeprecations": "5.0",
+    "types": [
+      "vitest/globals"
+    ],
+    "verbatimModuleSyntax": true,
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "incremental": true,
+    "jsx": "react-jsx",
+    "declaration": true,
+    "declarationMap": true,
+    "moduleDetection": "force",
+    "noUncheckedIndexedAccess": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "~/*": [
+        "./public/*"
+      ],
+      "#app/*": [
+        "./src/app/*"
+      ],
+      "#app": [
+        "./src/app"
+      ],
+      "#components/*": [
+        "./src/components/*"
+      ],
+      "#components": [
+        "./src/components"
+      ],
+      "#ui/*": [
+        "./src/components/ui/*"
+      ],
+      "#ui": [
+        "./src/components/ui"
+      ],
+      "#blocks/*": [
+        "./src/components/blocks/*"
+      ],
+      "#blocks": [
+        "./src/components/blocks"
+      ],
+      "#hooks/*": [
+        "./src/hooks/*"
+      ],
+      "#hooks": [
+        "./src/hooks"
+      ],
+      "#modules/*": [
+        "./src/modules/*"
+      ],
+      "#modules": [
+        "./src/modules"
+      ],
+      "#providers/*": [
+        "./src/providers/*"
+      ],
+      "#providers": [
+        "./src/providers"
+      ],
+      "#shared/*": [
+        "./src/shared/*"
+      ],
+      "#shared": [
+        "./src/shared"
+      ],
+      "#store/*": [
+        "./src/store/*"
+      ],
+      "#store": [
+        "./src/store"
+      ],
+      "#views/*": [
+        "./src/views/*"
+      ],
+      "#views": [
+        "./src/views"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.js",
+    "*/**/*.ts",
+    "**/*.cjs",
+    "**/*.mjs",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

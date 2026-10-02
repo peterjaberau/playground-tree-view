@@ -1,0 +1,11 @@
+{
+  "name": "Nextjs Template",
+  "short_name": "Nextjs Template",
+  "description": "Nextjs Template Application",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "icons": [
+
+  ]
+}
