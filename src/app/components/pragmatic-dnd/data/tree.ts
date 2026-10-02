@@ -5,6 +5,8 @@ export type TreeItem = {
   isDraft?: boolean
   children: TreeItem[]
   isOpen?: boolean
+  disableDrag?: boolean
+  disableDrop?: boolean
 }
 
 export type TreeState = {
@@ -32,7 +34,7 @@ function getInitialData(): TreeItem[] {
           id: "1.1",
           isOpen: true,
           children: [
-            { id: "1.1.1", children: [] },
+            { id: "1.1.1", disableDrop: true, children: [] },
             { id: "1.1.2", isDraft: true, children: [] },
           ],
         },
@@ -46,6 +48,7 @@ function getInitialData(): TreeItem[] {
         {
           id: "2.1",
           isOpen: true,
+          disableDrag: true,
           children: [
             { id: "2.1.1", children: [] },
             { id: "2.1.2", children: [] },

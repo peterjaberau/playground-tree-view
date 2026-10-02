@@ -29,9 +29,6 @@ type TreeItemProps = {
   index: number
 }
 
-function containsItem(items: TreeItemData[], id: string): boolean {
-  return items.some((item) => item.id === id || containsItem(item.children, id))
-}
 
 const TreeItem = memo(function TreeItem({ item, level, index }: TreeItemProps) {
   const buttonRef = useRef<HTMLButtonElement | null>(null)
@@ -45,6 +42,8 @@ const TreeItem = memo(function TreeItem({ item, level, index }: TreeItemProps) {
 
   const hasChildren = item.children.length > 0
   const isOpen = item.isOpen ?? false
+  // const disableDrag = item.disableDrag ?? true
+
 
   const clearExpandTimer = useCallback(() => {
     if (expandTimer.current !== null) {
@@ -85,6 +84,7 @@ const TreeItem = memo(function TreeItem({ item, level, index }: TreeItemProps) {
           type: "tree-item",
           uniqueContextId,
         }),
+        canDrag: () => !item.disableDrag,
         onGenerateDragPreview: ({ nativeSetDragImage }) => {
           setCustomNativeDragPreview({
             getOffset: pointerOutsideOfPreview({ x: "16px", y: "8px" }),
@@ -125,20 +125,20 @@ const TreeItem = memo(function TreeItem({ item, level, index }: TreeItemProps) {
             {
               input,
               element,
-              operations: item.isDraft
-                ? { combine: "blocked" }
-                : {
-                    combine: "available",
-                    "reorder-before": "available",
-                    "reorder-after": hasChildren && isOpen ? "not-available" : "available",
-                  },
+              operations:
+                item.isDraft || item.disableDrop
+                  ? { combine: "blocked" }
+                  : {
+                      combine: "available",
+                      "reorder-before": "available",
+                      "reorder-after": hasChildren && isOpen ? "not-available" : "available",
+                    },
             },
           ),
         canDrop: ({ source }) =>
           source.data.type === "tree-item" &&
           source.data.id !== item.id &&
-          source.data.uniqueContextId === uniqueContextId &&
-          !containsItem(item.children, source.data.id as string),
+          source.data.uniqueContextId === uniqueContextId,
         onDragEnter: updateInstruction,
         onDrag: updateInstruction,
         onDragLeave: () => {
@@ -164,10 +164,13 @@ const TreeItem = memo(function TreeItem({ item, level, index }: TreeItemProps) {
 
     return dropTargetForElements({
       element: group,
-      canDrop: ({ source }) =>
-        source.data.type === "tree-item" &&
-        source.data.id !== item.id &&
-        source.data.uniqueContextId === uniqueContextId,
+      canDrop: ({ source }) => {
+        return (
+          source.data.type === "tree-item" &&
+          source.data.id !== item.id &&
+          source.data.uniqueContextId === uniqueContextId
+        )
+      },
       getData: () => ({ type: "group" }),
       getIsSticky: () => false,
       onDragStart: updateGroupState,
